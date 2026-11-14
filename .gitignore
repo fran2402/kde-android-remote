@@ -6,3 +6,5 @@ local.properties
 .DS_Store
 captures/
 .kotlin/
+# Google's Home APIs SDK may not be redistributed; keep it out of the repository.
+home-sdk/

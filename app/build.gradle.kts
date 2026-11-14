@@ -6,6 +6,17 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+/** The newest version of [artifact] in the unzipped Home APIs SDK under home-sdk/, if present. */
+fun homeSdkVersion(artifact: String): String? = rootProject.file("home-sdk").takeIf { it.isDirectory }
+    ?.walkTopDown()
+    ?.firstOrNull { it.isDirectory && it.invariantSeparatorsPath.endsWith("com/google/android/gms/$artifact") }
+    ?.listFiles { f -> f.isDirectory }
+    ?.map { it.name }
+    ?.maxWithOrNull(compareBy<String>({ it.substringBefore('.').toIntOrNull() ?: 0 }, { it }))
+
+val homeVersion = homeSdkVersion("play-services-home")
+val homeTypesVersion = homeSdkVersion("play-services-home-types") ?: homeVersion
+
 android {
     namespace = "io.github.fran2402.kderemote"
     compileSdk = 36
@@ -51,6 +62,12 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    sourceSets {
+        getByName("main") {
+            java.srcDir(if (homeVersion != null) "src/googleHome/java" else "src/noGoogleHome/java")
+        }
+    }
+
     buildFeatures {
         compose = true
     }
@@ -85,7 +102,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.81")
-    implementation("com.google.android.gms:play-services-home:17.1.0")
-    implementation("com.google.android.gms:play-services-home-types:17.1.0")
+    if (homeVersion != null) {
+        implementation("com.google.android.gms:play-services-home:$homeVersion")
+        implementation("com.google.android.gms:play-services-home-types:$homeTypesVersion")
+    }
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

@@ -29,6 +29,20 @@ jobs:
           echo "$SIGNING_KEYSTORE" | base64 -d > "$RUNNER_TEMP/kde-remote.jks"
           echo "SIGNING_KEYSTORE_FILE=$RUNNER_TEMP/kde-remote.jks" >> "$GITHUB_ENV"
 
+      - name: Fetch Google Home APIs SDK
+        env:
+          HOME_SDK_URL: ${{ secrets.HOME_SDK_URL }}
+        run: |
+          if [ -z "$HOME_SDK_URL" ]; then
+            echo "No HOME_SDK_URL secret: building without the Home tab."
+            exit 0
+          fi
+          curl -fsSL "$HOME_SDK_URL" -o "$RUNNER_TEMP/home-sdk.zip"
+          mkdir -p home-sdk
+          unzip -q "$RUNNER_TEMP/home-sdk.zip" -d home-sdk
+          # Some downloads nest the Maven repository in another zip.
+          find home-sdk -name '*.zip' -exec unzip -q -o {} -d home-sdk \;
+
       - name: Build debug and release APKs
         env:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}

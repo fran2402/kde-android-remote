@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.fran2402.kderemote.home.HOME_SDK_INCLUDED
 import io.github.fran2402.kderemote.home.HomeAccess
 import io.github.fran2402.kderemote.home.HomeLights
 import io.github.fran2402.kderemote.home.Light
@@ -80,7 +81,11 @@ fun HomeTab(homeLights: HomeLights?, modifier: Modifier = Modifier) {
     if (homeLights == null) {
         Message(
             "Google Home isn't available",
-            "This phone doesn't have the Google Play services the Home APIs need.",
+            if (HOME_SDK_INCLUDED) {
+                "This phone doesn't have the Google Play services the Home APIs need."
+            } else {
+                "This build was made without Google's Home APIs SDK. See \"Home tab\" in the README to add it."
+            },
             modifier,
         )
         return

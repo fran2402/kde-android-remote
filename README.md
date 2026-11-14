@@ -39,8 +39,17 @@ to TLS, then pairing with a verification code.
 
 ## Home tab (Google Home lights)
 
-The Home tab uses Google's Home APIs, which sign in with your Google account. Google ties that
-sign-in to the app's signing key, so the app must always be signed with the same key:
+The Home tab uses Google's Home APIs, which sign in with your Google account. Two things are
+needed that can't live in this public repository:
+
+0. **The Home APIs SDK.** Google doesn't publish it to a public Maven repository: sign in at
+   developers.home.google.com, download the Android SDK (a zip with a Maven repository inside), and
+   either unzip it into `home-sdk/` for a local build, or put the zip somewhere private with a
+   direct download link and save that link as the repository secret `HOME_SDK_URL` so CI fetches
+   it. Without it the app builds normally and the Home tab says the SDK is missing.
+
+Google also ties the sign-in to the app's signing key, so the app must always be signed with the
+same key:
 
 1. **Stable signing key.** Add two repository secrets (Settings → Secrets and variables → Actions):
    `SIGNING_KEYSTORE` (the keystore, base64) and `SIGNING_PASSWORD`. CI then signs every build with

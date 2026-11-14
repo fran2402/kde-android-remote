@@ -12,6 +12,7 @@ import android.os.Build
 import android.provider.Settings
 import android.util.Log
 import io.github.fran2402.kderemote.home.HomeLights
+import io.github.fran2402.kderemote.home.createHomeLights
 import io.github.fran2402.kderemote.kdeconnect.KdeConnectManager
 import io.github.fran2402.kderemote.kdeconnect.KeyValueStore
 
@@ -20,7 +21,7 @@ class RemoteApplication : Application() {
     lateinit var manager: KdeConnectManager
         private set
 
-    /** Null when Google Play services can't provide the Home APIs. */
+    /** Null when the build lacks the Home APIs SDK or Google Play services can't provide it. */
     var homeLights: HomeLights? = null
         private set
 
@@ -44,7 +45,7 @@ class RemoteApplication : Application() {
             }
         manager.start()
         homeLights = try {
-            HomeLights(this)
+            createHomeLights(this)
         } catch (e: Exception) {
             Log.w("KdeRemote", "Google Home APIs unavailable", e)
             null
