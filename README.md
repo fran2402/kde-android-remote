@@ -13,7 +13,9 @@ Material You colours and Google Sans Flex (fully rounded). It talks to the PC th
 | Volume slider / mute | Default audio output volume and mute |
 | Power | Your "Suspend" Run Command (see below) |
 | Touchpad mode | Pointer movement, tap = click, two-finger tap = right click, two fingers = scroll |
-| Keyboard mode | Typed text, Esc, Tab, Backspace, Enter |
+| Keyboard mode | Typed keys one by one; sticky Ctrl/Alt/Shift/Super (tap = next key, hold = lock); Super alone; Esc, Tab, Del, arrows, Home/End, PgUp/PgDn, F1–F12 |
+| Speaker button | Switch the PC's default audio output |
+| **Home** tab | Your Google Home lights: on/off, brightness, white temperature and colour |
 
 ## How it connects
 
@@ -35,13 +37,34 @@ to TLS, then pairing with a verification code.
    command `systemctl suspend`. Until then the power button shows a **Set up** shortcut that opens
    that settings page on the PC.
 
+## Home tab (Google Home lights)
+
+The Home tab uses Google's Home APIs, which sign in with your Google account. Google ties that
+sign-in to the app's signing key, so the app must always be signed with the same key:
+
+1. **Stable signing key.** Add two repository secrets (Settings → Secrets and variables → Actions):
+   `SIGNING_KEYSTORE` (the keystore, base64) and `SIGNING_PASSWORD`. CI then signs every build with
+   that key. Without them builds still work, but Google sign-in won't.
+2. **Google Cloud OAuth client** (one-time, free) at console.cloud.google.com:
+   - Create a project, then **APIs & Services → OAuth consent screen**: user type *External*,
+     fill in the app name and your email, no scopes, and add your Google account under
+     **Test users**.
+   - **Credentials → Create credentials → OAuth client ID → Android**: package name
+     `io.github.fran2402.kderemote` and the SHA-1 of your signing key
+     (`keytool -list -v -keystore kde-remote.jks`).
+3. Install the new build, open **Home → Connect Google Home** and pick your home.
+
+The app works with lights you can already control in the Google Home app; Matter lights need a
+Google hub. No Google review is needed for personal use (up to 100 test users).
+
 ## Building
 
 ```sh
 ./gradlew assembleDebug
 ```
 
-Requires JDK 17+ and the Android SDK (compile SDK 36). Minimum Android version is 8.0 (API 26);
+Requires JDK 17+ and the Android SDK (compile SDK 36). Minimum Android version is 10 (API 29, for
+the Google Home APIs);
 wallpaper colours need Android 12+, older versions use a KDE-blue palette.
 
 Google Sans Flex is licensed under the SIL Open Font License, see `licenses/GoogleSansFlex-OFL.txt`.
