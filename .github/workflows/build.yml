@@ -37,11 +37,37 @@ jobs:
             echo "No HOME_SDK_URL secret: building without the Home tab."
             exit 0
           fi
-          curl -fsSL "$HOME_SDK_URL" -o "$RUNNER_TEMP/home-sdk.zip"
+          url="$HOME_SDK_URL"
+          # Google Drive share links open a web page; turn any Drive link into a direct download
+          # that also skips the "can't scan for viruses" page for large files.
+          if echo "$url" | grep -q 'drive\.google\.com\|drive\.usercontent\.google\.com'; then
+            id=$(echo "$url" | grep -oE '(/d/|[?&]id=)[A-Za-z0-9_-]{20,}' | head -1 | sed -E 's#^(/d/|[?&]id=)##')
+            url="https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t"
+          fi
+          # Dropbox share links need dl=1 to download the file itself.
+          if echo "$url" | grep -q 'dropbox\.com'; then
+            url=$(echo "$url" | sed -E 's/([?&])dl=0/\1dl=1/')
+            echo "$url" | grep -q 'dl=1' || url="$url$(echo "$url" | grep -q '?' && echo '&' || echo '?')dl=1"
+          fi
+          archive="$RUNNER_TEMP/home-sdk-download"
+          curl -fsSL "$url" -o "$archive"
           mkdir -p home-sdk
-          unzip -q "$RUNNER_TEMP/home-sdk.zip" -d home-sdk
+          case "$(file -b --mime-type "$archive")" in
+            application/zip) unzip -q "$archive" -d home-sdk ;;
+            application/gzip|application/x-gzip) tar -xzf "$archive" -C home-sdk ;;
+            application/x-tar) tar -xf "$archive" -C home-sdk ;;
+            *)
+              echo "::error::HOME_SDK_URL downloaded '$(file -b "$archive" | cut -c1-80)', not the SDK zip. Share the file so anyone with the link can download it (Google Drive: Share > General access > Anyone with the link), then save the share link as HOME_SDK_URL."
+              exit 1
+              ;;
+          esac
           # Some downloads nest the Maven repository in another zip.
           find home-sdk -name '*.zip' -exec unzip -q -o {} -d home-sdk \;
+          if ! find home-sdk -type d -path '*com/google/android/gms/play-services-home' | grep -q .; then
+            echo "::error::The download unpacked fine but has no com/google/android/gms/play-services-home folder. Top-level contents:"
+            find home-sdk -maxdepth 3 | head -40
+            exit 1
+          fi
 
       - name: Build debug and release APKs
         env:
