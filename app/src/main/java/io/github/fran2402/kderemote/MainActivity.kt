@@ -9,14 +9,17 @@ import io.github.fran2402.kderemote.ui.theme.KdeRemoteTheme
 
 class MainActivity : ComponentActivity() {
 
-    private val manager get() = (application as RemoteApplication).manager
+    private val app get() = application as RemoteApplication
+    private val manager get() = app.manager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // The Home APIs launch their consent screen through this activity.
+        app.homeLights?.register(this)
         setContent {
             KdeRemoteTheme {
-                RemoteScreen(manager)
+                RemoteScreen(manager, app.homeLights)
             }
         }
     }

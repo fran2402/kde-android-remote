@@ -71,6 +71,9 @@ class KdeConnectManager(
     private val _volume = MutableStateFlow<VolumeState?>(null)
     val volume: StateFlow<VolumeState?> = _volume.asStateFlow()
 
+    private val _audioOutputs = MutableStateFlow<List<AudioOutput>>(emptyList())
+    val audioOutputs: StateFlow<List<AudioOutput>> = _audioOutputs.asStateFlow()
+
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
@@ -321,6 +324,7 @@ class KdeConnectManager(
                 val s = list.optJSONObject(i) ?: return@mapNotNull null
                 Sink(
                     name = s.optString("name"),
+                    description = s.optString("description").ifEmpty { s.optString("name") },
                     volume = s.optInt("volume"),
                     maxVolume = s.optInt("maxVolume", Sink.NORMAL_VOLUME),
                     muted = s.optBoolean("muted"),
@@ -330,9 +334,11 @@ class KdeConnectManager(
             return
         }
         val name = body.optString("name").ifEmpty { return }
+        val becameDefault = body.optBoolean("enabled", false)
         data.sinks = data.sinks.map { sink ->
             if (sink.name != name) {
-                sink
+                // Only one output can be the default.
+                if (becameDefault) sink.copy(isDefault = false) else sink
             } else {
                 sink.copy(
                     volume = if (body.has("volume")) body.optInt("volume") else sink.volume,
@@ -490,9 +496,19 @@ class KdeConnectManager(
 
     // region Remote control API
 
-    fun sendSpecialKey(code: Int) = sendInput(JSONObject().put("specialKey", code))
+    fun sendSpecialKey(code: Int, modifiers: KeyModifiers = KeyModifiers.NONE) =
+        sendInput(JSONObject().put("specialKey", code).withModifiers(modifiers))
 
-    fun sendKey(key: String) = sendInput(JSONObject().put("key", key))
+    fun sendKey(key: String, modifiers: KeyModifiers = KeyModifiers.NONE) =
+        sendInput(JSONObject().put("key", key).withModifiers(modifiers))
+
+    private fun JSONObject.withModifiers(modifiers: KeyModifiers): JSONObject {
+        if (modifiers.ctrl) put("ctrl", true)
+        if (modifiers.alt) put("alt", true)
+        if (modifiers.shift) put("shift", true)
+        if (modifiers.superKey) put("super", true)
+        return this
+    }
 
     fun click() = sendInput(JSONObject().put("singleclick", true))
 
@@ -594,6 +610,14 @@ class KdeConnectManager(
         publishSelected()
     }
 
+    /** Makes [name] the PC's default audio output. */
+    fun setAudioOutput(name: String) {
+        val (link, data) = selectedLinkAndData() ?: return
+        link.send(NetworkPacket(PacketType.SYSTEMVOLUME_REQUEST, JSONObject().put("name", name).put("enabled", true)))
+        data.sinks = data.sinks.map { it.copy(isDefault = it.name == name) }
+        publishSelected()
+    }
+
     /** Runs the desktop's "suspend" Run Command, which the user adds once in KDE Connect settings. */
     fun suspendComputer() {
         val (link, data) = selectedLinkAndData() ?: return
@@ -671,6 +695,7 @@ class KdeConnectManager(
         val data = _selectedId.value?.let { deviceData[it] }
         val sink = data?.defaultSink
         _volume.value = sink?.let { VolumeState(it.volume.toFloat() / it.normalVolume, it.muted) }
+        _audioOutputs.value = data?.sinks.orEmpty().map { AudioOutput(it.name, it.description, it.isDefault) }
         _isPlaying.value = data?.let { synchronized(it.players) { it.players.values.any { playing -> playing } } } ?: false
     }
 

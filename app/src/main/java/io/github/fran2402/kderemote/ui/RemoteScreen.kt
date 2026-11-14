@@ -28,6 +28,9 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material.icons.rounded.SettingsRemote
+import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -38,6 +41,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -60,10 +65,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.fran2402.kderemote.home.HomeLights
 import io.github.fran2402.kderemote.kdeconnect.Device
 import io.github.fran2402.kderemote.kdeconnect.KdeConnectManager
 import io.github.fran2402.kderemote.kdeconnect.SpecialKey
 import kotlinx.coroutines.flow.collectLatest
+
+private enum class AppTab { Remote, Home }
 
 private enum class InputMode(val label: String) { DPad("D-pad"), Touchpad("Touchpad"), Keyboard("Keyboard") }
 
@@ -71,16 +79,19 @@ private enum class InputMode(val label: String) { DPad("D-pad"), Touchpad("Touch
 private const val HOME_KEY = "`"
 
 @Composable
-fun RemoteScreen(manager: KdeConnectManager) {
+fun RemoteScreen(manager: KdeConnectManager, homeLights: HomeLights?) {
     val devices by manager.devices.collectAsStateWithLifecycle()
     val selectedId by manager.selectedDeviceId.collectAsStateWithLifecycle()
     val pairing by manager.pairing.collectAsStateWithLifecycle()
     val volume by manager.volume.collectAsStateWithLifecycle()
     val isPlaying by manager.isPlaying.collectAsStateWithLifecycle()
+    val outputs by manager.audioOutputs.collectAsStateWithLifecycle()
     val selected = devices.firstOrNull { it.id == selectedId }
     val hasPairedDevice = devices.any { it.paired }
 
+    var tab by rememberSaveable { mutableStateOf(AppTab.Remote) }
     var mode by rememberSaveable { mutableStateOf(InputMode.DPad) }
+    var showOutputs by rememberSaveable { mutableStateOf(false) }
     var showDevices by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val colors = MaterialTheme.colorScheme
@@ -95,9 +106,28 @@ fun RemoteScreen(manager: KdeConnectManager) {
             if (result == SnackbarResult.ActionPerformed) msg.action?.invoke()
         }
     }
+    LaunchedEffect(homeLights) {
+        homeLights?.errors?.collectLatest { snackbar.showSnackbar(it) }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = tab == AppTab.Remote,
+                    onClick = { tab = AppTab.Remote },
+                    icon = { Icon(Icons.Rounded.SettingsRemote, null) },
+                    label = { Text("Remote") },
+                )
+                NavigationBarItem(
+                    selected = tab == AppTab.Home,
+                    onClick = { tab = AppTab.Home },
+                    icon = { Icon(Icons.Rounded.Lightbulb, null) },
+                    label = { Text("Home") },
+                )
+            }
+        },
         containerColor = colors.surface,
     ) { padding ->
         Column(
@@ -109,6 +139,16 @@ fun RemoteScreen(manager: KdeConnectManager) {
                 .padding(horizontal = 16.dp)
                 .padding(top = 8.dp, bottom = 16.dp),
         ) {
+            if (tab == AppTab.Home) {
+                Text(
+                    "Home",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                )
+                HomeTab(homeLights, Modifier.weight(1f).fillMaxWidth())
+                return@Column
+            }
             TopBar(
                 device = selected,
                 onDevices = { showDevices = true },
@@ -144,7 +184,7 @@ fun RemoteScreen(manager: KdeConnectManager) {
                         modifier = Modifier.fillMaxSize(),
                     )
                     InputMode.Keyboard -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                        KeyboardPanel(onText = manager::sendKey, onSpecialKey = manager::sendSpecialKey)
+                        KeyboardPanel(onKey = manager::sendKey, onSpecialKey = manager::sendSpecialKey)
                     }
                 }
             }
@@ -175,6 +215,17 @@ fun RemoteScreen(manager: KdeConnectManager) {
                         onLevelChange = manager::setVolume,
                         modifier = Modifier.weight(1f).height(64.dp),
                     )
+                    ExpressiveButton(
+                        onClick = { showOutputs = true },
+                        contentDescription = "Audio output",
+                        containerColor = colors.surfaceContainerHigh,
+                        contentColor = colors.onSurface,
+                        modifier = Modifier.size(64.dp),
+                        cornerPercent = 30,
+                        pressedCornerPercent = 50,
+                    ) {
+                        Icon(Icons.Rounded.Speaker, null)
+                    }
                 }
             }
         }
@@ -196,6 +247,17 @@ fun RemoteScreen(manager: KdeConnectManager) {
             onRefresh = manager::refresh,
             onAddByAddress = manager::addDeviceByAddress,
             onDismiss = { showDevices = false },
+        )
+    }
+
+    if (showOutputs) {
+        OutputSheet(
+            outputs = outputs,
+            onSelect = { output ->
+                manager.setAudioOutput(output.name)
+                showOutputs = false
+            },
+            onDismiss = { showOutputs = false },
         )
     }
 

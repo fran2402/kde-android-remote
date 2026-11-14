@@ -18,7 +18,20 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Restore signing key
+        env:
+          SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
+        run: |
+          if [ -z "$SIGNING_KEYSTORE" ]; then
+            echo "No SIGNING_KEYSTORE secret: building with a throwaway debug key (Google Home sign-in won't work)."
+            exit 0
+          fi
+          echo "$SIGNING_KEYSTORE" | base64 -d > "$RUNNER_TEMP/kde-remote.jks"
+          echo "SIGNING_KEYSTORE_FILE=$RUNNER_TEMP/kde-remote.jks" >> "$GITHUB_ENV"
+
       - name: Build debug and release APKs
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         run: ./gradlew assembleDebug assembleRelease --stacktrace
 
       - uses: actions/upload-artifact@v4

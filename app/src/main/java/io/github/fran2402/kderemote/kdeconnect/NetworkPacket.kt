@@ -43,6 +43,20 @@ object SpecialKey {
     const val UP = 5
     const val RIGHT = 6
     const val DOWN = 7
+    const val PAGE_UP = 8
+    const val PAGE_DOWN = 9
+    const val HOME = 10
+    const val END = 11
     const val RETURN = 12
+    const val DELETE = 13
     const val ESCAPE = 14
+
+    /** Pressing a modifier on its own, e.g. Super to open a launcher. */
+    const val CTRL = 17
+    const val ALT = 18
+    const val SHIFT = 19
+    const val SUPER = 20
+
+    /** F1 is 21, F12 is 32. */
+    fun function(n: Int) = 20 + n
 }

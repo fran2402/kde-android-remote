@@ -12,19 +12,37 @@ android {
 
     defaultConfig {
         applicationId = "io.github.fran2402.kderemote"
-        minSdk = 26
+        // The Google Home APIs need Android 10.
+        minSdk = 29
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
     }
 
+    // Google sign-in for the Home tab is tied to the signing key's SHA-1, so CI signs with a fixed
+    // key from the SIGNING_KEYSTORE / SIGNING_PASSWORD secrets when they are set.
+    val stableKeystore = System.getenv("SIGNING_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (stableKeystore != null) {
+            create("stable") {
+                storeFile = stableKeystore
+                storePassword = System.getenv("SIGNING_PASSWORD")
+                keyAlias = "kde-remote"
+                keyPassword = System.getenv("SIGNING_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfigs.findByName("stable")?.let { signingConfig = it }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Personal sideloaded app: sign release builds with the debug key so they install directly.
-            signingConfig = signingConfigs.getByName("debug")
+            // Personal sideloaded app: without the stable key, sign with the debug key so it still installs.
+            signingConfig = signingConfigs.findByName("stable") ?: signingConfigs.getByName("debug")
         }
     }
 
@@ -67,5 +85,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.81")
+    implementation("com.google.android.gms:play-services-home:17.1.0")
+    implementation("com.google.android.gms:play-services-home-types:17.1.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

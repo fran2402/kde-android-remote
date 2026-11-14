@@ -11,12 +11,17 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
+import io.github.fran2402.kderemote.home.HomeLights
 import io.github.fran2402.kderemote.kdeconnect.KdeConnectManager
 import io.github.fran2402.kderemote.kdeconnect.KeyValueStore
 
 class RemoteApplication : Application() {
 
     lateinit var manager: KdeConnectManager
+        private set
+
+    /** Null when Google Play services can't provide the Home APIs. */
+    var homeLights: HomeLights? = null
         private set
 
     private var multicastLock: WifiManager.MulticastLock? = null
@@ -38,6 +43,12 @@ class RemoteApplication : Application() {
                 acquire()
             }
         manager.start()
+        homeLights = try {
+            HomeLights(this)
+        } catch (e: Exception) {
+            Log.w("KdeRemote", "Google Home APIs unavailable", e)
+            null
+        }
 
         val connectivity = getSystemService(ConnectivityManager::class.java)
         connectivity.registerNetworkCallback(

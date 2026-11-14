@@ -28,10 +28,27 @@ data class VolumeState(
     val muted: Boolean,
 )
 
+data class AudioOutput(val name: String, val description: String, val isDefault: Boolean)
+
+/** Modifier keys held down while a key is sent. */
+data class KeyModifiers(
+    val ctrl: Boolean = false,
+    val alt: Boolean = false,
+    val shift: Boolean = false,
+    val superKey: Boolean = false,
+) {
+    val any: Boolean get() = ctrl || alt || shift || superKey
+
+    companion object {
+        val NONE = KeyModifiers()
+    }
+}
+
 data class UiMessage(val text: String, val actionLabel: String? = null, val action: (() -> Unit)? = null)
 
 internal data class Sink(
     val name: String,
+    val description: String,
     val volume: Int,
     val maxVolume: Int,
     val muted: Boolean,
